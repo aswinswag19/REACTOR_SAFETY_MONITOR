@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nuclear Reactor Safety Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-base:       #020b12;
+      --bg-panel:      #041624;
+      --bg-card:       #071e30;
+      --bg-glow:       #0a2a42;
+      --accent-cyan:   #00d4ff;
+      --accent-green:  #00ff87;
+      --accent-yellow: #ffd700;
+      --accent-red:    #ff3333;
+      --accent-orange: #ff6b35;
+      --text-primary:  #e0f4ff;
+      --text-dim:      #5a8fa8;
+      --text-mono:     #00d4ff;
+      --border:        #0f3a57;
+      --border-glow:   rgba(0,212,255,0.3);
+      --safe-color:    #00ff87;
+      --warn-color:    #ffd700;
+      --crit-color:    #ff3333;
+      --font-display:  'Orbitron', monospace;
+      --font-ui:       'Rajdhani', sans-serif;
+      --font-mono:     'Share Tech Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ─── AUTH PAGE ──────────────────────────────────────── */
+    #auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .auth-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .auth-logo svg { animation: spin 8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .auth-logo h1 {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      color: var(--accent-cyan);
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 20px rgba(0,212,255,0.6);
+      margin-top: 0.75rem;
+    }
+    .auth-logo p {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.15em;
+      margin-top: 0.25rem;
+    }
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.75rem;
+    }
+    .auth-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      padding: 0.65rem;
+      cursor: pointer;
+      transition: color 0.2s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .auth-tab.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+    }
+    .auth-form { display: none; flex-direction: column; gap: 1rem; }
+    .auth-form.active { display: flex; }
+    .auth-field label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      letter-spacing: 0.2em;
+      margin-bottom: 0.4rem;
+    }
+    .auth-field input {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 0.6rem 0.75rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .auth-field input:focus { border-color: var(--accent-cyan); }
+    .auth-submit {
+      background: rgba(0,212,255,0.12);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 3px;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 0.25rem;
+    }
+    .auth-submit:hover { background: rgba(0,212,255,0.22); }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-error {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--crit-color);
+      text-align: center;
+      min-height: 1.2rem;
+    }
+
+    /* ─── DASHBOARD (hidden until logged in) ──────────────── */
+    #dashboard { display: none; }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #020d18 0%, #041624 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 0 40px rgba(0,212,255,0.1);
+    }
+    .logo { display: flex; align-items: center; gap: 1rem; }
+    .reactor-icon { width: 44px; height: 44px; }
+    .reactor-icon svg { animation: spin 8s linear infinite; }
+    .logo-text h1 {
+      font-family: var(--font-display);
+      font-size: 0.9rem; font-weight: 700;
+      color: var(--accent-cyan);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 20px rgba(0,212,255,0.6);
+    }
+    .logo-text p {
+      font-family: var(--font-mono);
+      font-size: 0.65rem; color: var(--text-dim);
+      letter-spacing: 0.15em;
+    }
+    .header-right { display: flex; align-items: center; gap: 1.5rem; }
+    .live-indicator { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-green); }
+    .live-dot { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; animation: pulse-dot 1.5s ease-in-out infinite; box-shadow: 0 0 8px var(--accent-green); }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+    #header-time { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); }
+    #user-info {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    #user-info span { color: var(--accent-cyan); }
+    #logout-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      padding: 0.3rem 0.6rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    #logout-btn:hover { border-color: var(--crit-color); color: var(--crit-color); }
+
+    /* ─── STATUS BANNER ──────────────────────────────────── */
+    .status-banner {
+      text-align: center; padding: 1.5rem 2rem;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .status-banner::before {
+      content: ''; position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%); width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    }
+    .status-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    #reactor-status-text { font-family: var(--font-display); font-size: clamp(2rem,5vw,3.5rem); font-weight: 900; letter-spacing: 0.15em; transition: color 0.5s, text-shadow 0.5s; }
+    .status-safe     { color: var(--safe-color);  text-shadow: 0 0 40px rgba(0,255,135,0.6); }
+    .status-warning  { color: var(--warn-color);  text-shadow: 0 0 40px rgba(255,215,0,0.6); }
+    .status-critical { color: var(--crit-color);  text-shadow: 0 0 40px rgba(255,51,51,0.8); animation: critical-flash 0.8s ease-in-out infinite alternate; }
+    @keyframes critical-flash { from{opacity:1} to{opacity:0.6} }
+    #status-sub { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-dim); margin-top: 0.3rem; }
+
+    /* ─── LAYOUT ─────────────────────────────────────────── */
+    main { max-width: 1600px; margin: 0 auto; padding: 1.5rem; }
+    .grid-5  { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .grid-3  { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .grid-5 { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 500px) { .grid-5 { grid-template-columns: 1fr 1fr; } header { padding: 0 1rem; } main { padding: 0.75rem; } }
+
+    /* ─── CARDS ──────────────────────────────────────────── */
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 1.25rem; position: relative; overflow: hidden; transition: border-color 0.3s; }
+    .card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent); opacity: 0.4; }
+    .card:hover { border-color: var(--border-glow); }
+    .card-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 0.75rem; }
+    .card-value { font-family: var(--font-display); font-size: 2.2rem; font-weight: 700; color: var(--accent-cyan); line-height: 1; }
+    .card-unit  { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); margin-left: 0.3rem; }
+    .card-status { margin-top: 0.6rem; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em; }
+    .sensor-ok       { border-left: 3px solid var(--safe-color); }
+    .sensor-warn     { border-left: 3px solid var(--warn-color); }
+    .sensor-critical { border-left: 3px solid var(--crit-color); }
+    .sensor-neutral  { border-left: 3px solid var(--text-dim); }
+
+    /* ─── PROGRESS BAR ───────────────────────────────────── */
+    .progress-bar { height: 6px; background: var(--bg-glow); border-radius: 3px; overflow: hidden; margin-top: 0.6rem; }
+    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease, background 0.5s; }
+
+    /* ─── CHART PANEL ────────────────────────────────────── */
+    .chart-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 1.25rem; position: relative; }
+    .chart-panel::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent); opacity: 0.4; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .panel-title  { font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); letter-spacing: 0.15em; }
+    .panel-badge  { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 2px; }
+
+    /* ─── ALERTS ─────────────────────────────────────────── */
+    #alerts-container { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .alert-item { display: flex; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid rgba(15,58,87,0.4); align-items: flex-start; animation: slide-in 0.3s ease; }
+    @keyframes slide-in { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+    .alert-dot  { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .alert-time { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+    .alert-msg  { font-family: var(--font-ui); font-size: 0.78rem; color: var(--text-primary); line-height: 1.4; }
+
+    /* ─── AI PANEL ───────────────────────────────────────── */
+    .ai-card { background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0,212,255,0.04) 100%); }
+    .ai-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); padding: 0.3rem 0.7rem; border-radius: 2px; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-cyan); letter-spacing: 0.1em; }
+    .ai-status-line { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid rgba(15,58,87,0.4); font-family: var(--font-mono); font-size: 0.72rem; }
+    .ai-status-line span:first-child { color: var(--text-dim); }
+    .ai-status-line span:last-child  { color: var(--accent-cyan); }
+
+    /* ─── BOOL ROWS ──────────────────────────────────────── */
+    .bool-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid rgba(15,58,87,0.3); }
+    .bool-indicator { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; transition: background 0.3s, box-shadow 0.3s; }
+    .bool-on-danger { background: var(--crit-color); box-shadow: 0 0 8px var(--crit-color); animation: pulse-dot 1s ease-in-out infinite; }
+    .bool-off { background: var(--bg-glow); border: 1px solid var(--border); }
+    .bool-label { font-family: var(--font-ui); font-size: 0.82rem; color: var(--text-primary); flex: 1; }
+    .bool-value { font-family: var(--font-mono); font-size: 0.72rem; }
+
+    /* ─── FOOTER ─────────────────────────────────────────── */
+    footer { text-align: center; padding: 1.5rem; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.15em; }
+
+    #api-url-display { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); background: var(--bg-base); border: 1px solid var(--border); padding: 0.3rem 0.6rem; border-radius: 2px; }
+
+    #reactor-schematic { width: 100%; max-width: 400px; margin: 0 auto; display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ AUTH PAGE ═══════════════════════════════ -->
+<div id="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <svg width="48" height="48" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="20" stroke="#00d4ff" stroke-width="1.5" opacity="0.4"/>
+        <circle cx="22" cy="22" r="14" stroke="#00d4ff" stroke-width="1.5" opacity="0.6"/>
+        <circle cx="22" cy="22" r="5"  fill="#00d4ff"/>
+        <line x1="22" y1="2"  x2="22" y2="8"  stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="22" y1="36" x2="22" y2="42" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="2"  y1="22" x2="8"  y2="22" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="36" y1="22" x2="42" y2="22" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="6.34"  y1="6.34"  x2="10.69" y2="10.69" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="33.31" y1="33.31" x2="37.66" y2="37.66" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="37.66" y1="6.34"  x2="33.31" y2="10.69" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="10.69" y1="33.31" x2="6.34"  y2="37.66" stroke="#00d4ff" stroke-width="1.5"/>
+      </svg>
+      <h1>REACTOR SAFETY MONITOR</h1>
+      <p>AR-ASSISTED IoT DIGITAL TWIN SYSTEM</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">LOGIN</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">SIGN UP</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form class="auth-form active" id="form-login" onsubmit="doLogin(event)">
+      <div class="auth-field">
+        <label>EMAIL ADDRESS</label>
+        <input type="email" id="login-email" placeholder="operator@reactor.gov" required autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label>PASSWORD</label>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password"/>
+      </div>
+      <div class="auth-error" id="login-error"></div>
+      <button type="submit" class="auth-submit" id="login-btn">▸ ACCESS SYSTEM</button>
+    </form>
+
+    <!-- SIGNUP FORM -->
+    <form class="auth-form" id="form-signup" onsubmit="doSignup(event)">
+      <div class="auth-field">
+        <label>FULL NAME</label>
+        <input type="text" id="signup-name" placeholder="Dr. Jane Doe" required autocomplete="name"/>
+      </div>
+      <div class="auth-field">
+        <label>EMAIL ADDRESS</label>
+        <input type="email" id="signup-email" placeholder="operator@reactor.gov" required autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label>PASSWORD (MIN 6 CHARS)</label>
+        <input type="password" id="signup-password" placeholder="••••••••" required autocomplete="new-password" minlength="6"/>
+      </div>
+      <div class="auth-error" id="signup-error"></div>
+      <button type="submit" class="auth-submit" id="signup-btn">▸ CREATE ACCOUNT</button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD ═══════════════════════════════ -->
+<div id="dashboard">
+
+<header>
+  <div class="logo">
+    <div class="reactor-icon">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="22" r="20" stroke="#00d4ff" stroke-width="1.5" opacity="0.4"/>
+        <circle cx="22" cy="22" r="14" stroke="#00d4ff" stroke-width="1.5" opacity="0.6"/>
+        <circle cx="22" cy="22" r="5"  fill="#00d4ff"/>
+        <line x1="22" y1="2"  x2="22" y2="8"  stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="22" y1="36" x2="22" y2="42" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="2"  y1="22" x2="8"  y2="22" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="36" y1="22" x2="42" y2="22" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="6.34"  y1="6.34"  x2="10.69" y2="10.69" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="33.31" y1="33.31" x2="37.66" y2="37.66" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="37.66" y1="6.34"  x2="33.31" y2="10.69" stroke="#00d4ff" stroke-width="1.5"/>
+        <line x1="10.69" y1="33.31" x2="6.34"  y2="37.66" stroke="#00d4ff" stroke-width="1.5"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <h1>REACTOR SAFETY MONITOR</h1>
+      <p>AR-ASSISTED IoT DIGITAL TWIN SYSTEM</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      LIVE DATA
+    </div>
+    <div id="header-time">--:--:--</div>
+    <div id="user-info">
+      <span id="user-name-display"></span>
+      <button id="logout-btn" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+</header>
+
+<div class="status-banner">
+  <div class="status-label">▸ REACTOR CORE STATUS</div>
+  <div id="reactor-status-text" class="status-safe">INITIALIZING</div>
+  <div id="status-sub">Awaiting sensor data...</div>
+</div>
+
+<main>
+
+  <!-- ROW 1: 5 Sensor Cards (UV removed) -->
+  <div class="grid-5">
+    <div class="card sensor-neutral" id="card-temp">
+      <div class="card-label">⬥ CORE TEMPERATURE</div>
+      <div><span class="card-value" id="val-temp">--</span><span class="card-unit">°C</span></div>
+      <div class="progress-bar mt-1"><div class="progress-fill" id="bar-temp" style="width:0%;background:var(--accent-cyan)"></div></div>
+      <div class="card-status" id="status-temp">DHT22 SENSOR</div>
+    </div>
+
+    <div class="card sensor-neutral" id="card-hum">
+      <div class="card-label">⬥ HUMIDITY</div>
+      <div><span class="card-value" id="val-hum">--</span><span class="card-unit">%</span></div>
+      <div class="progress-bar mt-1"><div class="progress-fill" id="bar-hum" style="width:0%;background:var(--accent-cyan)"></div></div>
+      <div class="card-status text-dim">AMBIENT HUMIDITY</div>
+    </div>
+
+    <div class="card sensor-neutral" id="card-gas">
+      <div class="card-label">⬥ COOLANT LEAK</div>
+      <div><span class="card-value" id="val-gas">--</span><span class="card-unit">RAW</span></div>
+      <div class="progress-bar mt-1"><div class="progress-fill" id="bar-gas" style="width:0%;background:var(--accent-green)"></div></div>
+      <div class="card-status" id="status-gas">MQ GAS SENSOR</div>
+    </div>
+
+    <div class="card sensor-neutral" id="card-coolant">
+      <div class="card-label">⬥ COOLANT LEVEL</div>
+      <div><span class="card-value" id="val-coolant">--</span><span class="card-unit">%</span></div>
+      <div class="progress-bar mt-1"><div class="progress-fill" id="bar-coolant" style="width:0%;background:var(--accent-green)"></div></div>
+      <div class="card-status" id="status-coolant">ULTRASONIC SENSOR</div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2: Charts -->
+  <div class="grid-2">
+    <div class="chart-panel">
+      <div class="panel-header"><span class="panel-title">TEMPERATURE HISTORY</span><span class="panel-badge">LAST 30 READINGS</span></div>
+      <canvas id="chart-temp" height="140"></canvas>
+    </div>
+    <div class="chart-panel">
+      <div class="panel-header"><span class="panel-title">COOLANT LEVEL HISTORY</span><span class="panel-badge">LAST 30 READINGS</span></div>
+      <canvas id="chart-coolant" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- ROW 3: Gas + Health -->
+  <div class="grid-2">
+    <div class="chart-panel">
+      <div class="panel-header"><span class="panel-title">GAS SENSOR LEVEL</span><span class="panel-badge">NORMALIZED</span></div>
+      <canvas id="chart-gas" height="140"></canvas>
+    </div>
+    <div class="chart-panel">
+      <div class="panel-header"><span class="panel-title">SYSTEM HEALTH SCORE</span><span class="panel-badge">0–100</span></div>
+      <canvas id="chart-health" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- ROW 4: Alerts + AI + Schematic -->
+  <div class="grid-3">
+    <div>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="panel-header"><span class="panel-title">▸ ALERT LOG</span><span class="panel-badge" id="alert-count">0 EVENTS</span></div>
+        <div id="alerts-container">
+          <div style="text-align:center;padding:2rem;color:var(--text-dim);font-family:var(--font-mono);font-size:0.75rem;">NO ALERTS — SYSTEM NOMINAL</div>
+        </div>
+      </div>
+      <div class="card ai-card">
+        <div class="panel-header"><span class="panel-title">▸ AI ANOMALY DETECTION</span><span class="ai-badge">ISOLATION FOREST</span></div>
+        <div class="ai-status-line"><span>MODEL STATUS</span><span id="ai-trained">TRAINING...</span></div>
+        <div class="ai-status-line"><span>SAMPLES COLLECTED</span><span id="ai-samples">0</span></div>
+        <div class="ai-status-line"><span>ANOMALY DETECTED</span><span id="ai-anomaly">--</span></div>
+        <div class="ai-status-line"><span>ANOMALY SCORE</span><span id="ai-score">--</span></div>
+        <div class="mt-1" style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-dim);line-height:1.6">AI trains on first 30 samples then detects abnormal patterns using Isolation Forest algorithm.</div>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:1rem">
+      <div class="panel-header"><span class="panel-title">▸ REACTOR SCHEMATIC</span><span class="panel-badge">LIVE</span></div>
+      <svg id="reactor-schematic" viewBox="0 0 300 280" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="150" cy="70" rx="90" ry="30" fill="none" stroke="#0f3a57" stroke-width="2"/>
+        <rect x="60" y="70" width="180" height="120" fill="#041624" stroke="#0f3a57" stroke-width="2"/>
+        <rect x="110" y="90" width="80" height="80" rx="4" fill="#071e30" stroke="#00d4ff" stroke-width="1.5" id="core-rect"/>
+        <text x="150" y="125" text-anchor="middle" fill="#00d4ff" font-family="'Share Tech Mono'" font-size="9">REACTOR</text>
+        <text x="150" y="140" text-anchor="middle" fill="#00d4ff" font-family="'Share Tech Mono'" font-size="9">CORE</text>
+        <path d="M60 110 Q30 110 30 150 Q30 190 60 190" fill="none" stroke="#00d4ff" stroke-width="3" stroke-dasharray="6,3" id="pipe-left"/>
+        <path d="M240 110 Q270 110 270 150 Q270 190 240 190" fill="none" stroke="#00d4ff" stroke-width="3" stroke-dasharray="6,3" id="pipe-right"/>
+        <rect x="60" y="190" width="180" height="40" rx="4" fill="#041624" stroke="#0f3a57" stroke-width="1.5"/>
+        <rect x="62" y="192" id="coolant-fill-rect" width="0" height="36" rx="3" fill="#00d4ff" opacity="0.3"/>
+        <text x="150" y="216" text-anchor="middle" fill="#5a8fa8" font-family="'Share Tech Mono'" font-size="8">COOLANT TANK</text>
+        <rect x="125" y="70" width="6" height="50" fill="#ffd700" id="rod1"/>
+        <rect x="147" y="70" width="6" height="50" fill="#ffd700" id="rod2"/>
+        <rect x="169" y="70" width="6" height="50" fill="#ffd700" id="rod3"/>
+        <circle cx="90"  cy="240" r="8" fill="#071e30" stroke="#0f3a57" stroke-width="1.5" id="ind-temp"/>
+        <text x="90"  y="258" text-anchor="middle" fill="#5a8fa8" font-family="'Share Tech Mono'" font-size="7">TEMP</text>
+        <circle cx="130" cy="240" r="8" fill="#071e30" stroke="#0f3a57" stroke-width="1.5" id="ind-gas"/>
+        <text x="130" y="258" text-anchor="middle" fill="#5a8fa8" font-family="'Share Tech Mono'" font-size="7">GAS</text>
+        <circle cx="210" cy="240" r="8" fill="#071e30" stroke="#0f3a57" stroke-width="1.5" id="ind-coolant"/>
+        <text x="210" y="258" text-anchor="middle" fill="#5a8fa8" font-family="'Share Tech Mono'" font-size="7">COOL</text>
+      </svg>
+
+      <div>
+        <div class="bool-row"><div class="bool-indicator bool-off" id="bool-gas"></div><div class="bool-label">Coolant Gas Leak</div><div class="bool-value" id="bool-gas-val">--</div></div>
+        <div class="bool-row"><div class="bool-indicator bool-off" id="bool-temp-hi"></div><div class="bool-label">High Temperature Alert</div><div class="bool-value" id="bool-temp-hi-val">--</div></div>
+      </div>
+      <div><div class="card-label">▸ BACKEND API</div><div id="api-url-display">http://localhost:5000/api/latest</div></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  AR-ASSISTED NUCLEAR REACTOR SAFETY MONITORING SYSTEM &nbsp;|&nbsp;
+  IoT DIGITAL TWIN &nbsp;|&nbsp;
+  ARDUINO UNO R4 &nbsp;+&nbsp; FLASK &nbsp;+&nbsp; CHART.JS
+</footer>
+
+</div><!-- /dashboard -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  AUTH CONTROLLER
+// ═══════════════════════════════════════════════════════
+
+const API_BASE = 'http://localhost:5000/api';
+let authToken = null;
+let currentUser = null;
+
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('form-login').classList.toggle('active', tab === 'login');
+  document.getElementById('form-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('signup-error').textContent = '';
+}
+
+async function doLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  btn.disabled = true; btn.textContent = '▸ AUTHENTICATING...';
+  err.textContent = '';
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value,
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error || 'Login failed'; return; }
+    onAuthSuccess(data.token, data.user);
+  } catch (ex) {
+    err.textContent = 'Cannot connect to server. Is backend running?';
+  } finally {
+    btn.disabled = false; btn.textContent = '▸ ACCESS SYSTEM';
+  }
+}
+
+async function doSignup(e) {
+  e.preventDefault();
+  const btn = document.getElementById('signup-btn');
+  const err = document.getElementById('signup-error');
+  btn.disabled = true; btn.textContent = '▸ CREATING...';
+  err.textContent = '';
+  try {
+    const res = await fetch(`${API_BASE}/auth/signup`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: document.getElementById('signup-email').value,
+        password: document.getElementById('signup-password').value,
+        name: document.getElementById('signup-name').value,
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.error || 'Signup failed'; return; }
+    onAuthSuccess(data.token, data.user);
+  } catch (ex) {
+    err.textContent = 'Cannot connect to server. Is backend running?';
+  } finally {
+    btn.disabled = false; btn.textContent = '▸ CREATE ACCOUNT';
+  }
+}
+
+function onAuthSuccess(token, user) {
+  authToken = token;
+  currentUser = user;
+  sessionStorage.setItem('reactor_token', token);
+  sessionStorage.setItem('reactor_user', JSON.stringify(user));
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('user-name-display').textContent = user.name || user.email;
+  startDashboard();
+}
+
+function doLogout() {
+  authToken = null; currentUser = null;
+  sessionStorage.removeItem('reactor_token');
+  sessionStorage.removeItem('reactor_user');
+  document.getElementById('auth-page').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  stopDashboard();
+}
+
+// Restore session on reload
+(function restoreSession() {
+  const token = sessionStorage.getItem('reactor_token');
+  const user  = JSON.parse(sessionStorage.getItem('reactor_user') || 'null');
+  if (token && user) { onAuthSuccess(token, user); }
+})();
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD CONTROLLER
+// ═══════════════════════════════════════════════════════
+
+let pollIntervals = [];
+
+function stopDashboard() {
+  pollIntervals.forEach(clearInterval);
+  pollIntervals = [];
+}
+
+function authedFetch(url) {
+  return fetch(url, { headers: { 'Authorization': `Bearer ${authToken}` } });
+}
+
+function updateClock() {
+  document.getElementById('header-time').textContent = new Date().toLocaleTimeString('en-GB');
+}
+
+const CHART_MAX = 30;
+const chartOpts = (yMax) => ({
+  responsive: true,
+  animation: { duration: 400 },
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { display: false, grid: { color: 'rgba(15,58,87,0.5)' } },
+    y: { min: 0, max: yMax, grid: { color: 'rgba(15,58,87,0.5)' }, ticks: { color: '#5a8fa8', font: { family: "'Share Tech Mono'", size: 10 } }, border: { color: '#0f3a57' } }
+  }
+});
+
+function mkDataset(color, fill=true) {
+  return { data: [], borderColor: color, backgroundColor: fill ? color+'18' : 'transparent', borderWidth: 2, fill, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 };
+}
+
+let chartTemp, chartCoolant, chartGas, chartHealth;
+
+function initCharts() {
+  chartTemp    = new Chart(document.getElementById('chart-temp').getContext('2d'),    { type:'line', data:{ labels:[], datasets:[mkDataset('#ff6b35')] }, options: chartOpts(100) });
+  chartCoolant = new Chart(document.getElementById('chart-coolant').getContext('2d'), { type:'line', data:{ labels:[], datasets:[mkDataset('#00d4ff')] }, options: chartOpts(100) });
+  chartGas     = new Chart(document.getElementById('chart-gas').getContext('2d'),     { type:'line', data:{ labels:[], datasets:[mkDataset('#ffd700',false)] }, options: chartOpts(100) });
+  chartHealth  = new Chart(document.getElementById('chart-health').getContext('2d'),  { type:'line', data:{ labels:[], datasets:[mkDataset('#00ff87')] }, options: chartOpts(100) });
+}
+
+function pushChart(chart, val) {
+  chart.data.datasets[0].data.push(val);
+  if (chart.data.datasets[0].data.length > CHART_MAX) chart.data.datasets[0].data.shift();
+  chart.data.labels.push('');
+  if (chart.data.labels.length > CHART_MAX) chart.data.labels.shift();
+  chart.update('quiet');
+}
+
+function setBar(id, pct, color) {
+  const el = document.getElementById(id);
+  if (el) { el.style.width = pct + '%'; el.style.background = color; }
+}
+
+function colorBy(val, warn, crit) {
+  if (val >= crit) return 'var(--crit-color)';
+  if (val >= warn) return 'var(--warn-color)';
+  return 'var(--safe-color)';
+}
+
+function setStatus(status) {
+  const el  = document.getElementById('reactor-status-text');
+  const sub = document.getElementById('status-sub');
+  const map = {
+    SAFE:     { cls:'status-safe',     msg:'All systems nominal — reactor operating within safe parameters' },
+    WARNING:  { cls:'status-warning',  msg:'Anomaly detected — monitoring elevated parameters' },
+    CRITICAL: { cls:'status-critical', msg:'⚠ CRITICAL CONDITION — IMMEDIATE ACTION REQUIRED ⚠' },
+  };
+  const s = map[status] || { cls:'status-safe', msg:'' };
+  el.className = s.cls; el.textContent = status; sub.textContent = s.msg;
+}
+
+function setSensor(cardId, stateClass) {
+  const el = document.getElementById(cardId);
+  if (el) el.className = `card ${stateClass}`;
+}
+
+function setBool(indId, valId, active, trueLabel, falseLabel) {
+  const ind = document.getElementById(indId);
+  const val = document.getElementById(valId);
+  if (!ind || !val) return;
+  if (active) {
+    ind.className = 'bool-indicator bool-on-danger';
+    val.textContent = trueLabel; val.style.color = 'var(--crit-color)';
+  } else {
+    ind.className = 'bool-indicator bool-off';
+    val.textContent = falseLabel; val.style.color = 'var(--safe-color)';
+  }
+}
+
+function computeHealth(d) {
+  let score = 100;
+  if (d.temperature >= 70) score -= 40; else if (d.temperature >= 50) score -= 20;
+  if (d.gas_detected)      score -= 25;
+  if (d.coolant_level < 10) score -= 30; else if (d.coolant_level < 30) score -= 15;
+  return Math.max(0, score);
+}
+
+function updateSchematic(d) {
+  const sc = {SAFE:'#00ff87', WARNING:'#ffd700', CRITICAL:'#ff3333'}[d.status] || '#00d4ff';
+  const coreRect = document.getElementById('core-rect');
+  if (coreRect) coreRect.setAttribute('stroke', sc);
+  const fillRect = document.getElementById('coolant-fill-rect');
+  if (fillRect) {
+    fillRect.setAttribute('width', Math.round((d.coolant_level / 100) * 176));
+    fillRect.setAttribute('fill', d.coolant_level < 30 ? '#ff3333' : '#00d4ff');
+  }
+  const setInd = (id, color) => { const el=document.getElementById(id); if(el) el.setAttribute('fill',color); };
+  setInd('ind-temp',    d.temperature >= 70 ? '#ff3333' : d.temperature >= 50 ? '#ffd700' : '#00ff87');
+  setInd('ind-gas',     d.gas_detected ? '#ff3333' : '#00ff87');
+  setInd('ind-coolant', d.coolant_level < 10 ? '#ff3333' : d.coolant_level < 30 ? '#ffd700' : '#00ff87');
+}
+
+let lastAlertCount = 0;
+
+async function updateAlerts() {
+  try {
+    const res  = await authedFetch(`${API_BASE}/alerts?n=20`);
+    if (res.status === 401) { doLogout(); return; }
+    const data = await res.json();
+    if (data.length === lastAlertCount) return;
+    lastAlertCount = data.length;
+    document.getElementById('alert-count').textContent = data.length + ' EVENTS';
+    const container = document.getElementById('alerts-container');
+    if (data.length === 0) {
+      container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-dim);font-family:var(--font-mono);font-size:0.75rem;">NO ALERTS — SYSTEM NOMINAL</div>`;
+      return;
+    }
+    const colorMap = { CRITICAL: '#ff3333', WARNING: '#ffd700' };
+    container.innerHTML = data.map(a => {
+      const col  = colorMap[a.status] || '#5a8fa8';
+      const msgs = (a.reasons || []).join(' · ');
+      return `<div class="alert-item"><div class="alert-dot" style="background:${col};box-shadow:0 0 6px ${col}"></div><div class="alert-time">${new Date(a.timestamp).toLocaleTimeString('en-GB')}</div><div class="alert-msg"><span style="color:${col};font-weight:700">[${a.status}]</span> ${msgs}</div></div>`;
+    }).join('');
+  } catch(_) {}
+}
+
+async function updateAI() {
+  try {
+    const res  = await authedFetch(`${API_BASE}/predict`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('ai-trained').textContent = data.model_trained ? 'TRAINED ✓' : `COLLECTING (${data.samples_collected}/30)`;
+    document.getElementById('ai-trained').style.color = data.model_trained ? 'var(--safe-color)' : 'var(--warn-color)';
+    document.getElementById('ai-samples').textContent = data.samples_collected;
+    const anomaly = data.prediction?.anomaly;
+    document.getElementById('ai-anomaly').textContent = anomaly === true ? 'YES ⚠' : anomaly === false ? 'NO' : '--';
+    document.getElementById('ai-anomaly').style.color = anomaly ? 'var(--crit-color)' : 'var(--safe-color)';
+    document.getElementById('ai-score').textContent = data.prediction?.score ?? '--';
+  } catch(_) {}
+}
+
+async function fetchAndUpdate() {
+  try {
+    const res = await authedFetch(`${API_BASE}/latest`);
+    if (res.status === 401) { doLogout(); return; }
+    if (!res.ok) throw new Error('API down');
+    const d = await res.json();
+
+    setStatus(d.status);
+
+    const t = d.temperature ?? 0;
+    document.getElementById('val-temp').textContent = t.toFixed(1);
+    setBar('bar-temp', Math.min(t,100), colorBy(t,50,70));
+    document.getElementById('status-temp').textContent = t>=70 ? '⚠ CRITICAL TEMP' : t>=50 ? '⚠ HIGH TEMP' : '✓ NORMAL';
+    document.getElementById('status-temp').style.color = t>=70 ? 'var(--crit-color)' : t>=50 ? 'var(--warn-color)' : 'var(--safe-color)';
+    setSensor('card-temp', t>=70 ? 'sensor-critical' : t>=50 ? 'sensor-warn' : 'sensor-ok');
+
+    const h = d.humidity ?? 0;
+    document.getElementById('val-hum').textContent = h.toFixed(1);
+    setBar('bar-hum', h, 'var(--accent-cyan)');
+
+    const gr = d.gas_raw ?? 0;
+    document.getElementById('val-gas').textContent = gr;
+    setBar('bar-gas', Math.min((gr/1023)*100,100), d.gas_detected ? 'var(--crit-color)' : 'var(--safe-color)');
+    document.getElementById('status-gas').textContent = d.gas_detected ? '⚠ LEAK DETECTED' : '✓ NO LEAK';
+    document.getElementById('status-gas').style.color = d.gas_detected ? 'var(--crit-color)' : 'var(--safe-color)';
+    setSensor('card-gas', d.gas_detected ? 'sensor-critical' : 'sensor-ok');
+
+    const cl = d.coolant_level ?? 100;
+    document.getElementById('val-coolant').textContent = cl.toFixed(1);
+    setBar('bar-coolant', cl, colorBy(100-cl,70,90));
+    document.getElementById('status-coolant').textContent = cl<10 ? '⚠ CRITICALLY LOW' : cl<30 ? '⚠ LOW LEVEL' : '✓ ADEQUATE';
+    document.getElementById('status-coolant').style.color = cl<10 ? 'var(--crit-color)' : cl<30 ? 'var(--warn-color)' : 'var(--safe-color)';
+    setSensor('card-coolant', cl<10 ? 'sensor-critical' : cl<30 ? 'sensor-warn' : 'sensor-ok');
+
+    pushChart(chartTemp, t);
+    pushChart(chartCoolant, cl);
+    pushChart(chartGas, Math.min((gr/1023)*100, 100));
+    const health = computeHealth(d);
+    pushChart(chartHealth, health);
+    chartHealth.data.datasets[0].borderColor = health<40 ? '#ff3333' : health<70 ? '#ffd700' : '#00ff87';
+    chartHealth.data.datasets[0].backgroundColor = health<40 ? '#ff333318' : health<70 ? '#ffd70018' : '#00ff8718';
+
+    setBool('bool-gas',    'bool-gas-val',     d.gas_detected, 'LEAK DETECTED',   'NO LEAK');
+    setBool('bool-temp-hi','bool-temp-hi-val', t>=50,          t>=70 ? 'CRITICAL' : 'WARNING', 'NORMAL');
+
+    updateSchematic(d);
+  } catch(e) {
+    console.warn('API unreachable:', e.message);
+    document.getElementById('reactor-status-text').textContent = 'CONNECTING...';
+    document.getElementById('reactor-status-text').className = '';
+  }
+}
+
+function startDashboard() {
+  initCharts();
+  updateClock();
+  fetchAndUpdate();
+  updateAlerts();
+  updateAI();
+  pollIntervals.push(setInterval(updateClock, 1000));
+  pollIntervals.push(setInterval(fetchAndUpdate, 2000));
+  pollIntervals.push(setInterval(updateAlerts, 4000));
+  pollIntervals.push(setInterval(updateAI, 6000));
+}
+</script>
+</body>
+</html>
